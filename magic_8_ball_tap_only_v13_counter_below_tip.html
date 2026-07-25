@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#070711" />
+  <title>Magic 8 Ball</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg1: #05050a;
+      --bg2: #121225;
+      --panel: rgba(255,255,255,.08);
+      --border: rgba(255,255,255,.16);
+      --text: #f5f7ff;
+      --muted: #b9bdd2;
+      --blue: #275cff;
+      --blue2: #0c2aa8;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      margin: 0;
+      min-height: 100svh;
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      overflow-x: hidden;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 50% 20%, rgba(60,72,180,.3), transparent 35%),
+        radial-gradient(circle at 20% 90%, rgba(20,70,160,.18), transparent 35%),
+        linear-gradient(160deg, var(--bg2), var(--bg1) 70%);
+    }
+
+    .app {
+      width: min(100%, 560px);
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: clamp(2rem, 8vw, 3.2rem);
+      letter-spacing: -.05em;
+    }
+
+    .subtitle {
+      margin: 0 auto 20px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .question-wrap {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .mic-button {
+      width: auto;
+      min-width: 58px;
+      padding-inline: 16px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      box-shadow: none;
+      font-size: 1.25rem;
+    }
+
+    .mic-button.listening {
+      background: linear-gradient(180deg, #ff5d72, #b91935);
+      animation: pulseMic 1s ease-in-out infinite;
+    }
+
+    @keyframes pulseMic {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    input {
+      min-width: 0;
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 13px 14px;
+      font: inherit;
+      color: var(--text);
+      background: var(--panel);
+      outline: none;
+    }
+
+    input:focus {
+      border-color: rgba(93,135,255,.9);
+      box-shadow: 0 0 0 3px rgba(55,100,255,.18);
+    }
+
+    .ball-stage {
+      display: grid;
+      place-items: center;
+      min-height: 340px;
+      margin: 2px 0 18px;
+      perspective: 900px;
+    }
+
+    .ball {
+      position: relative;
+      width: min(78vw, 330px);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 34% 25%, #595966 0 2%, #24242d 10%, #09090e 46%, #000 78%);
+      border: 2px solid rgba(255,255,255,.1);
+      box-shadow:
+        inset -26px -36px 70px rgba(0,0,0,.9),
+        inset 18px 15px 40px rgba(255,255,255,.08),
+        0 28px 60px rgba(0,0,0,.65);
+      transform-style: preserve-3d;
+      user-select: none;
+      cursor: pointer;
+    }
+
+    .ball::after {
+      content: "";
+      position: absolute;
+      width: 58%;
+      height: 14%;
+      bottom: -8%;
+      border-radius: 50%;
+      background: rgba(0,0,0,.55);
+      filter: blur(15px);
+      z-index: -1;
+    }
+
+    .window {
+      width: 59%;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      padding: 25px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 38% 30%, #ffffff 0%, #f4f4f4 48%, #d5d5d5 100%);
+      border: none;
+      box-shadow:
+        inset -12px -16px 25px rgba(0,0,0,.22),
+        inset 10px 8px 18px rgba(255,255,255,.9),
+        0 0 0 1px rgba(0,0,0,.15);
+      transition: all .5s ease;
+    }
+
+    .window.answer-mode {
+      background:
+        radial-gradient(circle at 50% 44%, rgba(36,91,255,.8), #081346 58%, #010515 100%);
+      border: 10px solid #14141a;
+      box-shadow:
+        inset 0 0 25px rgba(67,110,255,.45),
+        0 0 0 3px rgba(255,255,255,.05);
+    }
+
+    .answer {
+      width: 100%;
+      color: #000;
+      font-size: clamp(1rem, 4.2vw, 1.35rem);
+      font-weight: 800;
+      line-height: 1.15;
+      text-transform: uppercase;
+      text-shadow: 0 2px 8px rgba(0,0,0,.7);
+      transition: opacity .18s ease, transform .18s ease;
+    }
+
+    .answer.changing {
+      opacity: 0;
+      transform: translateY(10px) scale(.92);
+    }
+
+    .eight {
+      font-size: clamp(5.3rem, 23vw, 9.2rem);
+      line-height: .85;
+      transform: translateY(-5%);
+    }
+
+    .shaking {
+      animation: shakeBall .18s ease-in-out infinite;
+    }
+
+    .holding {
+      transform: scale(.985);
+      box-shadow:
+        inset -26px -36px 70px rgba(0,0,0,.9),
+        inset 18px 15px 40px rgba(255,255,255,.08),
+        0 18px 45px rgba(0,0,0,.7);
+    }
+
+    .thinking {
+      opacity: .25;
+      filter: blur(3px);
+    }
+
+    .answer.revealing {
+      animation: revealAnswer 1.5s ease forwards;
+    }
+
+    @keyframes revealAnswer {
+      0% { opacity: 0; transform: scale(.82); filter: blur(7px); }
+      60% { opacity: .7; transform: scale(1.03); filter: blur(2px); }
+      100% { opacity: 1; transform: scale(1); filter: blur(0); }
+    }
+
+    @keyframes shakeBall {
+      0%,100% { transform: translate3d(0,0,0) rotate(0); }
+      15% { transform: translate3d(-14px,-4px,0) rotate(-7deg); }
+      30% { transform: translate3d(13px,4px,0) rotate(7deg); }
+      45% { transform: translate3d(-11px,3px,0) rotate(-5deg); }
+      60% { transform: translate3d(9px,-3px,0) rotate(5deg); }
+      75% { transform: translate3d(-6px,1px,0) rotate(-3deg); }
+    }
+
+    .controls {
+      display: grid;
+      gap: 10px;
+    }
+
+    .refresh-button {
+      width: 42px;
+      height: 42px;
+      margin: 12px auto 0;
+      padding: 0;
+      border-radius: 8px;
+      font-size: 1.25rem;
+      line-height: 1;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      box-shadow: none;
+    }
+
+    button {
+      width: 100%;
+      border: 0;
+      border-radius: 15px;
+      padding: 14px 18px;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+      color: white;
+      background: linear-gradient(180deg, #3e73ff, #1643c8);
+      box-shadow: 0 8px 22px rgba(19,58,185,.34);
+    }
+
+    button:active { transform: translateY(1px) scale(.995); }
+
+    button.secondary {
+      color: var(--text);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      box-shadow: none;
+    }
+
+    .status {
+      min-height: 24px;
+      margin: 13px 0 0;
+      color: var(--muted);
+      font-size: .92rem;
+    }
+
+    .counter {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .tip {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: .83rem;
+      line-height: 1.4;
+    }
+
+    @media (max-width: 430px) {
+      .question-wrap { grid-template-columns: 1fr auto; }
+      .ball-stage { min-height: 310px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .shaking { animation: none; }
+      .answer { transition: none; }
+    }
+  .window.answer-mode .answer {
+      color: white;
+    }
+    </style>
+</head>
+<body>
+  <main class="app">
+    <h1>Magic 8 Ball</h1>
+    <p style="margin:4px 0 10px;color:#9aa3c7;font-size:.9rem;">Created by prompting ChatGPT</p>
+    <p class="subtitle">Think of a yes-or-no question.</p>
+
+    <div class="question-wrap" style="display:none;">
+      <input id="question" type="text" maxlength="120" placeholder="Will today be awesome?" aria-label="Your question" />
+      <button id="micButton" class="mic-button" type="button" aria-label="Speak your question" title="Speak your question">🎤</button>
+    </div>
+
+    <section class="ball-stage" aria-label="Magic 8 Ball">
+      <div id="ball" class="ball" role="button" tabindex="0" aria-label="Tap to reveal an answer">
+        <div class="window">
+          <div id="answer" class="answer eight" aria-live="polite">8</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="controls">
+      <button id="askButton" type="button" style="display:none;">Ask the 8 Ball</button>
+      <button id="motionButton" class="secondary" type="button" style="display:none;"></button>
+    </div>
+
+    <p id="status" class="status"></p>
+    <p class="tip">Wait for your answer to appear.</p>
+
+    <p id="tapCounter" class="counter">Tap Counter: 0</p>
+
+    <button id="refreshButton" class="refresh-button" type="button" aria-label="Reset Magic 8 Ball" title="Reset">↻</button>
+  </main>
+
+  <script>
+    const answers = [
+      "It is certain",
+      "It is decidedly so",
+      "Without a doubt",
+      "Yes — definitely",
+      "You may rely on it",
+      "As I see it, yes",
+      "Most likely",
+      "Outlook good",
+      "Yes",
+      "Signs point to yes",
+      "Reply hazy, try again",
+      "Ask again later",
+      "Better not tell you now",
+      "Cannot predict now",
+      "Concentrate and ask again",
+      "Don't count on it",
+      "My reply is no",
+      "My sources say no",
+      "Outlook not so good",
+      "Very doubtful"
+    ];
+
+    const ball = document.getElementById("ball");
+    const answer = document.getElementById("answer");
+    const answerWindow = document.querySelector(".window");
+    const askButton = document.getElementById("askButton");
+    const motionButton = document.getElementById("motionButton");
+    const micButton = document.getElementById("micButton");
+    const question = document.getElementById("question");
+    const status = document.getElementById("status");
+    const refreshButton = document.getElementById("refreshButton");
+    const tapCounter = document.getElementById("tapCounter");
+    let tapCount = 0;
+
+    let lastAnswer = "";
+    let motionEnabled = false;
+    let lastShakeAt = 0;
+    let lastMotionAt = 0;
+    let lastX = null, lastY = null, lastZ = null;
+    let holdingBall = false;
+    let shakeSessionActive = false;
+    let settleTimer = null;
+    let revealTimer = null;
+
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    let listening = false;
+
+    function stopListeningUI() {
+      listening = false;
+      micButton.classList.remove("listening");
+      micButton.textContent = "🎤";
+      micButton.setAttribute("aria-label", "Speak your question");
+    }
+
+    function setupSpeechRecognition() {
+      if (!SpeechRecognition) {
+        micButton.disabled = true;
+        micButton.title = "Speech recognition is not supported in this browser";
+        status.textContent = "Voice transcription is unavailable here. Try Google Chrome on Android.";
+        return;
+      }
+
+      recognition = new SpeechRecognition();
+      recognition.lang = navigator.language || "en-US";
+      recognition.interimResults = true;
+      recognition.continuous = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.addEventListener("start", () => {
+        listening = true;
+        micButton.classList.add("listening");
+        micButton.textContent = "■";
+        micButton.setAttribute("aria-label", "Stop listening");
+        status.textContent = "Listening… speak your question.";
+      });
+
+      recognition.addEventListener("result", event => {
+        let transcript = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        question.value = transcript.trim();
+        status.textContent = event.results[event.results.length - 1].isFinal
+          ? "Question transcribed. Tap Ask the 8 Ball."
+          : "Listening…";
+      });
+
+      recognition.addEventListener("end", stopListeningUI);
+
+      recognition.addEventListener("error", event => {
+        stopListeningUI();
+
+        const messages = {
+          "not-allowed": "Microphone permission was denied. Allow microphone access in Chrome site settings.",
+          "service-not-allowed": "Speech service is blocked in this browser.",
+          "no-speech": "I did not hear anything. Tap the microphone and try again.",
+          "audio-capture": "No microphone was detected.",
+          "network": "Speech recognition needs an internet connection in this browser."
+        };
+
+        status.textContent = messages[event.error] || `Voice transcription error: ${event.error}`;
+      });
+
+      micButton.addEventListener("click", () => {
+        try {
+          if (listening) {
+            recognition.stop();
+          } else {
+            recognition.start();
+          }
+        } catch (error) {
+          status.textContent = "The microphone is already starting. Try again in a moment.";
+        }
+      });
+    }
+
+    function pickAnswer() {
+      let next;
+      do {
+        next = answers[Math.floor(Math.random() * answers.length)];
+      } while (answers.length > 1 && next === lastAnswer);
+      lastAnswer = next;
+      return next;
+    }
+
+    function beginHolding() {
+      holdingBall = true;
+      ball.classList.add("holding");
+      answer.classList.remove("revealing");
+      status.textContent = motionEnabled
+        ? "Think of your question, then tap the Magic 8 Ball."
+        : "Enable shake detection first, then hold and shake.";
+      if (navigator.vibrate) navigator.vibrate(25);
+    }
+
+    function endHolding() {
+      holdingBall = false;
+      ball.classList.remove("holding");
+      if (!shakeSessionActive) {
+        status.textContent = motionEnabled
+          ? "Tap the Magic 8 Ball to receive your answer."
+          : "Tap the Magic 8 Ball to begin.";
+      }
+    }
+
+    function beginShakeSession() {
+      if (!holdingBall || shakeSessionActive) return;
+
+      shakeSessionActive = true;
+      clearTimeout(settleTimer);
+      clearTimeout(revealTimer);
+
+      ball.classList.add("shaking");
+      answer.classList.remove("revealing");
+      answer.classList.add("thinking");
+      answer.classList.remove("eight");
+      answer.textContent = "";
+      status.textContent = "The Magic 8 Ball is thinking…";
+
+      if (navigator.vibrate) navigator.vibrate([40, 40, 40, 40, 40]);
+    }
+
+    function noteShakeMotion() {
+      if (!shakeSessionActive) beginShakeSession();
+      if (!shakeSessionActive) return;
+
+      lastMotionAt = Date.now();
+      clearTimeout(settleTimer);
+
+      settleTimer = setTimeout(() => {
+        if (Date.now() - lastMotionAt >= 700) finishShakeSession();
+      }, 750);
+    }
+
+    function finishShakeSession() {
+      if (!shakeSessionActive) return;
+
+      shakeSessionActive = false;
+      ball.classList.remove("shaking");
+      answer.classList.remove("thinking");
+      status.textContent = "The Magic 8 Ball is deciding…";
+
+      revealTimer = setTimeout(() => {
+        answerWindow.classList.add('answer-mode');
+        answer.textContent = pickAnswer();
+        answer.classList.add("revealing");
+        if (navigator.vibrate) navigator.vibrate([70, 50, 110]);
+        status.textContent = "";
+
+        setTimeout(() => answer.classList.remove("revealing"), 1600);
+      }, 1400);
+    }
+
+    function resetBall() {
+      clearTimeout(revealTimer);
+      clearTimeout(settleTimer);
+
+      answerWindow.classList.remove("answer-mode");
+      answer.classList.remove("revealing", "thinking", "changing");
+      answer.classList.add("eight");
+      answer.textContent = "8";
+      ball.classList.remove("shaking", "holding");
+      status.textContent = "";
+      if (navigator.vibrate) navigator.vibrate(35);
+    }
+
+    function tapFallback() {
+      tapCount++;
+      tapCounter.textContent = `Tap Counter: ${tapCount}`;
+
+      if (motionEnabled) {
+        status.textContent = "Touch and hold the ball while shaking your phone.";
+        return;
+      }
+
+      answer.classList.remove("eight", "thinking", "revealing");
+      answer.textContent = "";
+      ball.classList.add("shaking");
+      status.textContent = "The Magic 8 Ball is deciding…";
+
+      setTimeout(() => {
+        ball.classList.remove("shaking");
+        answerWindow.classList.add('answer-mode');
+        answer.textContent = pickAnswer();
+        answer.classList.add("revealing");
+        status.textContent = "";
+        if (navigator.vibrate) navigator.vibrate([70, 50, 110]);
+      }, 1600);
+    }
+
+    function handleMotion(event) {
+      const a = event.accelerationIncludingGravity;
+      if (!a || a.x == null || a.y == null || a.z == null) return;
+
+      if (lastX == null) {
+        lastX = a.x; lastY = a.y; lastZ = a.z;
+        return;
+      }
+
+      const delta = Math.abs(a.x - lastX) + Math.abs(a.y - lastY) + Math.abs(a.z - lastZ);
+      lastX = a.x; lastY = a.y; lastZ = a.z;
+
+      const now = Date.now();
+      if (delta > 15 && now - lastShakeAt > 120) {
+        lastShakeAt = now;
+        noteShakeMotion();
+      }
+    }
+
+    async function enableMotion() {
+      try {
+        if (typeof DeviceMotionEvent === "undefined") {
+          status.textContent = "Motion sensors are not available in this browser.";
+          return;
+        }
+
+        if (typeof DeviceMotionEvent.requestPermission === "function") {
+          const permission = await DeviceMotionEvent.requestPermission();
+          if (permission !== "granted") {
+            status.textContent = "Motion permission was not granted.";
+            return;
+          }
+        }
+
+        window.addEventListener("devicemotion", handleMotion, { passive: true });
+        motionEnabled = true;
+        motionButton.textContent = "Shake Detection Enabled";
+        motionButton.disabled = true;
+        status.textContent = "Tap the Magic 8 Ball to receive your answer.";
+      } catch (error) {
+        status.textContent = "Could not enable motion detection. You can still use the button.";
+      }
+    }
+
+    askButton.addEventListener("click", tapFallback);
+
+    ball.addEventListener("pointerdown", event => {
+      event.preventDefault();
+      beginHolding();
+    });
+
+    ball.addEventListener("pointerup", endHolding);
+    ball.addEventListener("pointercancel", endHolding);
+    ball.addEventListener("pointerleave", event => {
+      if (event.pointerType === "mouse") endHolding();
+    });
+
+    ball.addEventListener("click", event => {
+      if (!motionEnabled && !shakeSessionActive) tapFallback();
+    });
+
+    ball.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        tapFallback();
+      }
+    });
+    question.addEventListener("keydown", event => {
+      if (event.key === "Enter") revealAnswer();
+    });
+    motionButton.addEventListener("click", enableMotion);
+    refreshButton.addEventListener("click", resetBall);
+    setupSpeechRecognition();
+  </script>
+</body>
+</html>
